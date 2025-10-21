@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>诺安科技身份认证</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: white;
+            padding: 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .logo-container {
+            padding: 20px;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-bottom: 3px solid #1a237e;
+        }
+
+        .logo-container img {
+            max-width: 280px;
+            height: auto;
+        }
+
+        .main-content {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .status-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .status-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .status-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #666;
+        }
+        
+        .status-indicator.status-online {
+            background: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+        
+        .status-indicator.status-offline {
+            background: #f44336;
+        }
+        
+        .status-indicator.status-connecting {
+            background: #ff9800;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .hardware-id {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 15px 0;
+        }
+
+        .hardware-id-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .hardware-id-value {
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #212529;
+            letter-spacing: 0.5px;
+        }
+
+        .copy-btn {
+            background: #1a237e;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #283593;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(26, 35, 126, 0.25);
+        }
+
+        .btn {
+            background: #1a237e;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background: #283593;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(26, 35, 126, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1a237e;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .admin-contact {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+
+        .admin-contact h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.2em;
+        }
+
+        .contact-content {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .qr-code {
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .qr-code img {
+            width: 120px;
+            height: 120px;
+            border-radius: 10px;
+            border: 2px solid #28a745;
+            margin-bottom: 10px;
+        }
+
+        .qr-code p {
+            color: #28a745;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #6c757d;
+            text-align: center;
+            padding: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .version {
+            font-size: 0.8em;
+            color: #adb5bd;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-container">
+            <img src="assets/logo.jpg" alt="诺安科技" />
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="container">
+            <div class="status-section">
+                <div class="status-item">
+                    <span class="status-label">连接状态:</span>
+                    <div class="status-display">
+                        <div id="statusIndicator" class="status-indicator status-offline"></div>
+                        <span id="statusText">未连接</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hardware-id">
+                <div class="hardware-id-header">
+                    <strong>硬件ID:</strong>
+                    <button class="copy-btn" id="copyHardwareId">复制</button>
+                </div>
+                <span id="hardwareId" class="hardware-id-value">正在获取...</span>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在处理...</p>
+            </div>
+
+            <div class="error" id="error"></div>
+            <div class="success" id="success"></div>
+
+            <!-- 新增：首次下载提示与快捷按钮 -->
+            <div class="container" style="border-left: 4px solid #7e57c2; background: #f3e5f5; margin-bottom: 20px;">
+                <p style="color: #4a148c; font-weight: 600; line-height: 1.6; text-align: center;">
+                    初次下载请打开 nuoanai.com 网站点击<strong style="color:#7e57c2">紫色认证</strong>按钮申请权限
+                </p>
+                <div class="actions" style="margin-top: 10px;">
+                    <button class="btn" onclick="openExternalLink('https://nuoanai.com/login')">点击打开官网登录页（nuoanai.com）</button>
+                </div>
+            </div>
+
+            <div class="actions">
+                <!-- <button class="btn" id="authenticateBtn" onclick="authenticate()">设备认证</button> -->
+                <button class="btn btn-secondary" id="verifyBtn" onclick="verifyStatus()" disabled>验证状态</button>
+            </div>
+
+            <div class="admin-contact">
+                <h3>管理员联系方式</h3>
+                <div class="contact-content">
+                    <div class="qr-code">
+                        <img src="assets/wechat-qr.png" alt="微信二维码" id="wechatQR">
+                        <p>微信扫码联系</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p>诺安科技身份认证 v1.1.3</p>
+                <p>自动获取硬件ID并与服务器同步</p>
+                <div class="version">每1分钟自动验证设备状态</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html> 
