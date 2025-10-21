@@ -76,25 +76,40 @@ jobs:
         echo "开始构建 macOS 应用..."
         echo "electron-builder 版本: $(npx electron-builder --version)"
         echo ""
+        echo "=========================================="
+        echo "当前目录: $(pwd)"
+        echo "package.json 内容检查:"
+        if [ ! -f "package.json" ]; then
+          echo "❌ 错误: package.json 不存在！"
+          echo "当前目录文件列表:"
+          ls -lha
+          exit 1
+        fi
+        echo "✓ package.json 存在"
+        echo ""
         echo "构建配置："
-        cat package.json | grep -A 50 '"build"'
+        cat package.json | grep -A 50 '"build"' || echo "⚠️ 未找到 build 配置"
         echo ""
         echo "=========================================="
         echo "开始构建 macOS 应用（通用二进制）"
         echo "=========================================="
+        set +e  # 允许命令失败，我们手动检查退出码
         npx electron-builder --mac --universal 2>&1 | tee build.log
-        BUILD_EXIT_CODE=$?
+        BUILD_EXIT_CODE=${PIPESTATUS[0]}
+        set -e
         echo ""
         echo "构建命令退出码: $BUILD_EXIT_CODE"
         
         if [ $BUILD_EXIT_CODE -ne 0 ]; then
-          echo "❌ 构建失败！查看上面的错误信息"
           echo ""
-          echo "构建日志最后 50 行："
-          tail -n 50 build.log
+          echo "❌❌❌ 构建失败！ ❌❌❌"
+          echo ""
+          echo "==================== 完整构建日志 ===================="
+          cat build.log
+          echo "==================== 日志结束 ===================="
           exit 1
         else
-          echo "✓ 构建成功"
+          echo "✓ 构建命令执行成功"
         fi
       env:
         CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -105,11 +120,15 @@ jobs:
     
     # 8. 显示构建结果
     - name: 显示构建结果
+      if: always()
       working-directory: desktop
       run: |
         echo "=========================================="
         echo "构建完成，检查生成的文件"
         echo "=========================================="
+        echo ""
+        echo "当前目录内容:"
+        ls -lha
         echo ""
         echo "dist 目录是否存在:"
         if [ -d "dist" ]; then
@@ -128,8 +147,15 @@ jobs:
           echo "查找 APP 文件:"
           find dist -name "*.app" -type d || echo "⚠️ 未找到任何 APP 文件"
         else
-          echo "❌ dist 目录不存在！构建可能失败了"
-          exit 1
+          echo "❌ dist 目录不存在！构建失败了"
+          echo ""
+          echo "查看构建日志:"
+          if [ -f "build.log" ]; then
+            echo "==================== 构建日志 ===================="
+            cat build.log
+          else
+            echo "⚠️ build.log 不存在"
+          fi
         fi
     
     # 9. 上传构建产物
@@ -164,17 +190,40 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
         echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
-        echo "| 版本 | $(node -p "require('./desktop/package.json').version") |" >> $GITHUB_STEP_SUMMARY
+        
+        # 读取版本号（带错误处理）
+        VERSION=$(node -p "require('./desktop/package.json').version" 2>/dev/null || echo "未知")
+        echo "| 版本 | $VERSION |" >> $GITHUB_STEP_SUMMARY
         echo "| 平台 | macOS (Intel + Apple Silicon) |" >> $GITHUB_STEP_SUMMARY
         echo "| 构建时间 | $(date '+%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if ls desktop/dist/*.dmg 1> /dev/null 2>&1; then
-          echo "### 生成的文件：" >> $GITHUB_STEP_SUMMARY
-          for file in desktop/dist/*.dmg; do
-            size=$(du -h "$file" | cut -f1)
-            echo "- \`$(basename "$file")\` - $size" >> $GITHUB_STEP_SUMMARY
-          done
+        # 检查构建结果
+        if [ -d "desktop/dist" ]; then
+          if ls desktop/dist/*.dmg 1> /dev/null 2>&1; then
+            echo "### ✅ 构建成功！生成的文件：" >> $GITHUB_STEP_SUMMARY
+            for file in desktop/dist/*.dmg; do
+              size=$(du -h "$file" | cut -f1)
+              echo "- \`$(basename "$file")\` - $size" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "### ⚠️ dist 目录存在，但未找到 DMG 文件" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "dist 目录内容:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            ls -lh desktop/dist/ 2>/dev/null || echo "无法列出目录内容" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
         else
-          echo "### 未找到 DMG 文件" >> $GITHUB_STEP_SUMMARY
+          echo "### ❌ 构建失败：dist 目录不存在" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "desktop/build.log" ]; then
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>点击查看构建日志（最后100行）</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 100 desktop/build.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          fi
         fi
