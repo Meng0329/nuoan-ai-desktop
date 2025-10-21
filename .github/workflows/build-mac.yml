@@ -42,7 +42,7 @@ jobs:
     
     # 4. 安装依赖
     - name: 安装依赖
-      working-directory: desktop
+      working-directory: desktop/desktop
       run: |
         echo "开始安装依赖..."
         npm install
@@ -50,7 +50,7 @@ jobs:
     
     # 5. 显示配置信息
     - name: 检查配置
-      working-directory: desktop
+      working-directory: desktop/desktop
       run: |
         echo "package.json 版本:"
         node -p "require('./package.json').version"
@@ -59,58 +59,104 @@ jobs:
         ls -lh build/icon.icns || echo "icon.icns 不存在"
         ls -lh assets/logo.png || echo "logo.png 不存在"
     
-    # 6. 构建 macOS 应用（不签名）
+    # 6. 生成 macOS 图标
+    - name: 生成 macOS 图标
+      working-directory: desktop/desktop
+      run: |
+        echo "开始生成 macOS 图标..."
+        npm run build:icon:mac
+        echo ""
+        echo "检查生成的图标："
+        ls -lh build/icon.icns || echo "⚠️ icon.icns 生成失败"
+    
+    # 7. 构建 macOS 应用（不签名）
     - name: 构建 macOS 应用
-      working-directory: desktop
-      run: npm run build:mac
+      working-directory: desktop/desktop
+      run: |
+        echo "开始构建 macOS 应用..."
+        echo "electron-builder 版本: $(npx electron-builder --version)"
+        echo ""
+        echo "构建配置："
+        cat package.json | grep -A 50 '"build"'
+        echo ""
+        echo "=========================================="
+        echo "开始构建 macOS 应用（通用二进制）"
+        echo "=========================================="
+        npx electron-builder --mac --universal 2>&1 | tee build.log
+        BUILD_EXIT_CODE=$?
+        echo ""
+        echo "构建命令退出码: $BUILD_EXIT_CODE"
+        
+        if [ $BUILD_EXIT_CODE -ne 0 ]; then
+          echo "❌ 构建失败！查看上面的错误信息"
+          echo ""
+          echo "构建日志最后 50 行："
+          tail -n 50 build.log
+          exit 1
+        else
+          echo "✓ 构建成功"
+        fi
       env:
         CSC_IDENTITY_AUTO_DISCOVERY: false
         APPLEID: ""
         APPLEIDPASS: ""
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEBUG: electron-builder
     
-    # 7. 显示构建结果
+    # 8. 显示构建结果
     - name: 显示构建结果
-      working-directory: desktop
+      working-directory: desktop/desktop
       run: |
-        echo "构建完成"
+        echo "=========================================="
+        echo "构建完成，检查生成的文件"
+        echo "=========================================="
         echo ""
-        echo "生成的文件:"
-        ls -lh dist/*.dmg 2>/dev/null || echo "未找到 DMG 文件"
-        ls -lh dist/*.zip 2>/dev/null || echo "未找到 ZIP 文件"
-        echo ""
-        echo "dist 目录内容:"
-        ls -R dist/ || true
-        echo ""
-        if ls dist/*.dmg 1> /dev/null 2>&1; then
-          for file in dist/*.dmg; do
-            size=$(du -h "$file" | cut -f1)
-            echo "  $(basename "$file") - $size"
-          done
+        echo "dist 目录是否存在:"
+        if [ -d "dist" ]; then
+          echo "✓ dist 目录存在"
+          echo ""
+          echo "dist 目录完整内容:"
+          ls -lhR dist/
+          echo ""
+          echo "=========================================="
+          echo "查找 DMG 文件:"
+          find dist -name "*.dmg" -type f || echo "⚠️ 未找到任何 DMG 文件"
+          echo ""
+          echo "查找 ZIP 文件:"
+          find dist -name "*.zip" -type f || echo "⚠️ 未找到任何 ZIP 文件"
+          echo ""
+          echo "查找 APP 文件:"
+          find dist -name "*.app" -type d || echo "⚠️ 未找到任何 APP 文件"
+        else
+          echo "❌ dist 目录不存在！构建可能失败了"
+          exit 1
         fi
     
-    # 8. 上传构建产物
+    # 9. 上传构建产物
     - name: 上传构建产物
       uses: actions/upload-artifact@v4
       with:
         name: macos-dmg-files
         path: |
-          desktop/dist/*.dmg
-          desktop/dist/latest-mac.yml
-        if-no-files-found: error
+          desktop/desktop/dist/*.dmg
+          desktop/desktop/dist/*.zip
+          desktop/desktop/dist/latest-mac.yml
+        if-no-files-found: warn
     
-    # 9. 上传到 GitHub Release
+    # 10. 上传到 GitHub Release
     - name: 发布到 Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: desktop/dist/*.dmg
+        files: |
+          desktop/desktop/dist/*.dmg
+          desktop/desktop/dist/*.zip
         draft: false
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
-    # 10. 构建摘要
+    # 11. 构建摘要
     - name: 生成构建摘要
       if: always()
       run: |
@@ -118,14 +164,14 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
         echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
-        echo "| 版本 | $(node -p "require('./desktop/package.json').version") |" >> $GITHUB_STEP_SUMMARY
+        echo "| 版本 | $(node -p "require('./desktop/desktop/package.json').version") |" >> $GITHUB_STEP_SUMMARY
         echo "| 平台 | macOS (Intel + Apple Silicon) |" >> $GITHUB_STEP_SUMMARY
         echo "| 构建时间 | $(date '+%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if ls desktop/dist/*.dmg 1> /dev/null 2>&1; then
+        if ls desktop/desktop/dist/*.dmg 1> /dev/null 2>&1; then
           echo "### 生成的文件：" >> $GITHUB_STEP_SUMMARY
-          for file in desktop/dist/*.dmg; do
+          for file in desktop/desktop/dist/*.dmg; do
             size=$(du -h "$file" | cut -f1)
             echo "- \`$(basename "$file")\` - $size" >> $GITHUB_STEP_SUMMARY
           done

@@ -12,7 +12,8 @@
     "build:icon": "node generateWinIcon.js",
     "build:icon:mac": "node generateMacIcon.js",
     "build:win-installer": "node build-no-sign.js",
-    "build:mac": "npm run build:icon:mac && electron-builder --mac --universal"
+    "build:mac": "npm run build:icon:mac && electron-builder --mac --universal",
+    "test:config": "node test-build-config.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -34,25 +35,24 @@
     "appId": "com.nuoan-ai.desktop",
     "productName": "诺安科技身份认证",
     "directories": {
-      "buildResources": "assets"
+      "buildResources": "assets",
+      "output": "dist"
     },
     "files": [
       "**/*",
       "!**/temp/**",
-      "!**/temp-icons/**"
+      "!**/temp-icons/**",
+      "!dist/**",
+      "!build.log"
     ],
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "build/icon.icns",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["x64", "arm64"]
-        }
-      ],
+      "target": ["dmg"],
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": null
+      "identity": null,
+      "type": "distribution"
     },
     "dmg": {
       "title": "诺安科技身份认证 ${version}",

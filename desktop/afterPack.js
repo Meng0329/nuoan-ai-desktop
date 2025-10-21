@@ -7,6 +7,12 @@ const path = require('path');
  */
 exports.default = async function afterPack(context) {
 	const appOutDir = context.appOutDir; // e.g., dist/诺安AI桌面程序-win32-x64
+	
+	// 只在 Windows 平台执行清理
+	if (context.electronPlatformName !== 'win32') {
+		console.log('[afterPack] 跳过 macOS 清理，仅在 Windows 平台执行');
+		return;
+	}
 
 	try {
 		// 1) Keep only zh-CN and en-US locales
