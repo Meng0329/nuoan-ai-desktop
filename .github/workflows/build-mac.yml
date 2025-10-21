@@ -1,0 +1,134 @@
+name: 构建 macOS 桌面应用
+
+on:
+  # 手动触发（最常用）
+  workflow_dispatch:
+  
+  # 推送 tag 时自动触发（可选）
+  push:
+    tags:
+      - 'v*'
+  
+  # 推送到 main 分支时触发（可选）
+  # push:
+  #   branches:
+  #     - main
+
+jobs:
+  build-mac:
+    name: 构建 macOS 应用
+    runs-on: macos-latest  #使用 GitHub 提供的真实 macOS 环境
+    
+    steps:
+    # 1. 检出代码
+    - name: 检出代码
+      uses: actions/checkout@v4
+    
+    # 2. 设置 Node.js 环境
+    - name: 设置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    # 3. 显示系统信息
+    - name: 显示系统信息
+      run: |
+        echo "系统信息:"
+        echo "操作系统: $(uname -s)"
+        echo "架构: $(uname -m)"
+        echo "Node.js: $(node --version)"
+        echo "npm: $(npm --version)"
+        echo "工作目录: $(pwd)"
+    
+    # 4. 安装依赖
+    - name: 安装依赖
+      working-directory: desktop
+      run: |
+        echo "开始安装依赖..."
+        npm install
+        echo "依赖安装完成"
+    
+    # 5. 显示配置信息
+    - name: 检查配置
+      working-directory: desktop
+      run: |
+        echo "package.json 版本:"
+        node -p "require('./package.json').version"
+        echo ""
+        echo "检查图标文件:"
+        ls -lh build/icon.icns || echo "icon.icns 不存在"
+        ls -lh assets/logo.png || echo "logo.png 不存在"
+    
+    # 6. 构建 macOS 应用（不签名）
+    - name: 构建 macOS 应用
+      working-directory: desktop
+      run: npm run build:mac
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: false
+        APPLEID: ""
+        APPLEIDPASS: ""
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    # 7. 显示构建结果
+    - name: 显示构建结果
+      working-directory: desktop
+      run: |
+        echo "构建完成"
+        echo ""
+        echo "生成的文件:"
+        ls -lh dist/*.dmg 2>/dev/null || echo "未找到 DMG 文件"
+        ls -lh dist/*.zip 2>/dev/null || echo "未找到 ZIP 文件"
+        echo ""
+        echo "dist 目录内容:"
+        ls -R dist/ || true
+        echo ""
+        if ls dist/*.dmg 1> /dev/null 2>&1; then
+          for file in dist/*.dmg; do
+            size=$(du -h "$file" | cut -f1)
+            echo "  $(basename "$file") - $size"
+          done
+        fi
+    
+    # 8. 上传构建产物
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-dmg-files
+        path: |
+          desktop/dist/*.dmg
+          desktop/dist/latest-mac.yml
+        if-no-files-found: error
+    
+    # 9. 上传到 GitHub Release
+    - name: 发布到 Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: desktop/dist/*.dmg
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    # 10. 构建摘要
+    - name: 生成构建摘要
+      if: always()
+      run: |
+        echo "## macOS 构建摘要" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
+        echo "| 版本 | $(node -p "require('./desktop/package.json').version") |" >> $GITHUB_STEP_SUMMARY
+        echo "| 平台 | macOS (Intel + Apple Silicon) |" >> $GITHUB_STEP_SUMMARY
+        echo "| 构建时间 | $(date '+%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if ls desktop/dist/*.dmg 1> /dev/null 2>&1; then
+          echo "### 生成的文件：" >> $GITHUB_STEP_SUMMARY
+          for file in desktop/dist/*.dmg; do
+            size=$(du -h "$file" | cut -f1)
+            echo "- \`$(basename "$file")\` - $size" >> $GITHUB_STEP_SUMMARY
+          done
+        else
+          echo "### 未找到 DMG 文件" >> $GITHUB_STEP_SUMMARY
+        fi
