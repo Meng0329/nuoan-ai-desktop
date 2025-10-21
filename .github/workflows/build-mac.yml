@@ -70,9 +70,12 @@ jobs:
         echo "检查源文件:"
         ls -lh assets/logo.png || (echo "❌ 错误: assets/logo.png 不存在！" && exit 1)
         echo ""
+        echo "检查 iconutil 命令是否可用:"
+        which iconutil || echo "⚠️ iconutil 命令不存在"
+        echo ""
         echo "运行图标生成脚本..."
-        npm run build:icon:mac
-        ICON_EXIT_CODE=$?
+        npm run build:icon:mac 2>&1 | tee icon-build.log
+        ICON_EXIT_CODE=${PIPESTATUS[0]}
         echo ""
         echo "图标生成脚本退出码: $ICON_EXIT_CODE"
         echo ""
@@ -80,11 +83,17 @@ jobs:
         if [ -f "build/icon.icns" ]; then
           ls -lh build/icon.icns
           echo "✓ icon.icns 生成成功"
+          echo ""
+          echo "验证 ICNS 文件格式:"
+          file build/icon.icns || echo "无法检查文件类型"
         else
           echo "❌ 错误: build/icon.icns 不存在！"
           echo ""
           echo "build 目录内容:"
           ls -lh build/ || echo "build 目录不存在"
+          echo ""
+          echo "图标生成日志："
+          cat icon-build.log
           exit 1
         fi
     
@@ -126,6 +135,14 @@ jobs:
           echo "==================== 完整构建日志 ===================="
           cat build.log
           echo "==================== 日志结束 ===================="
+          echo ""
+          echo "==================== 错误分析 ===================="
+          echo "检查 build 目录:"
+          ls -lh build/ || echo "build 目录不存在"
+          echo ""
+          echo "检查 dist 目录:"
+          ls -lh dist/ || echo "dist 目录不存在"
+          echo ""
           exit 1
         else
           echo "✓ 构建命令执行成功"
@@ -135,7 +152,7 @@ jobs:
         APPLEID: ""
         APPLEIDPASS: ""
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        DEBUG: electron-builder
+        DEBUG: "electron-builder,electron-builder:*"
     
     # 8. 显示构建结果
     - name: 显示构建结果

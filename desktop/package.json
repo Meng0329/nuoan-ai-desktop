@@ -13,7 +13,11 @@
     "build:icon:mac": "node generateMacIcon.js",
     "build:win-installer": "node build-no-sign.js",
     "build:mac": "npm run build:icon:mac && electron-builder --mac --universal",
-    "test:config": "node test-build-config.js"
+    "build:mac:x64": "npm run build:icon:mac && electron-builder --mac --x64",
+    "build:mac:arm64": "npm run build:icon:mac && electron-builder --mac --arm64",
+    "build:mac:dir": "npm run build:icon:mac && electron-builder --mac --dir",
+    "test:config": "node test-build-config.js",
+    "diagnose:mac": "node diagnose-mac.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -43,20 +47,37 @@
       "!**/temp/**",
       "!**/temp-icons/**",
       "!dist/**",
-      "!build.log"
+      "!build.log",
+      "!*.md",
+      "!.github/**"
     ],
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "build/icon.icns",
-      "target": ["dmg"],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null,
-      "type": "distribution"
+      "type": "distribution",
+      "entitlements": null,
+      "entitlementsInherit": null,
+      "provisioningProfile": null,
+      "mergeASARs": true,
+      "singleArchFiles": "*"
     },
     "dmg": {
       "title": "诺安科技身份认证 ${version}",
       "icon": "build/icon.icns",
+      "backgroundColor": "#ffffff",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
       "contents": [
         {
           "x": 130,
@@ -68,7 +89,8 @@
           "type": "link",
           "path": "/Applications"
         }
-      ]
+      ],
+      "sign": false
     }
   }
 }

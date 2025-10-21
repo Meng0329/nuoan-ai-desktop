@@ -6,11 +6,41 @@ const path = require('path');
  * Removes unnecessary locales and optional runtime files to shrink artifact size.
  */
 exports.default = async function afterPack(context) {
-	const appOutDir = context.appOutDir; // e.g., dist/诺安AI桌面程序-win32-x64
+	const appOutDir = context.appOutDir;
+	const platform = context.electronPlatformName;
 	
-	// 只在 Windows 平台执行清理
-	if (context.electronPlatformName !== 'win32') {
-		console.log('[afterPack] 跳过 macOS 清理，仅在 Windows 平台执行');
+	console.log(`[afterPack] 开始清理，平台: ${platform}, 输出目录: ${appOutDir}`);
+	
+	// macOS 平台的清理
+	if (platform === 'darwin') {
+		try {
+			// macOS 应用在 .app/Contents/Resources 下
+			const appName = context.packager.appInfo.productFilename;
+			const resourcesDir = path.join(appOutDir, `${appName}.app`, 'Contents', 'Resources');
+			
+			// 清理语言包
+			const localesDir = path.join(resourcesDir, 'locales');
+			const keepLocales = new Set(['zh-CN.pak', 'en-US.pak']);
+			if (fs.existsSync(localesDir)) {
+				for (const file of fs.readdirSync(localesDir)) {
+					if (!keepLocales.has(file)) {
+						try {
+							fs.rmSync(path.join(localesDir, file), { force: true });
+						} catch (_e) {}
+					}
+				}
+			}
+			
+			console.log('[afterPack] macOS 清理完成');
+		} catch (e) {
+			console.warn('[afterPack] macOS 清理遇到问题:', e.message);
+		}
+		return;
+	}
+	
+	// Windows 平台的清理
+	if (platform !== 'win32') {
+		console.log(`[afterPack] 跳过清理，不支持的平台: ${platform}`);
 		return;
 	}
 
