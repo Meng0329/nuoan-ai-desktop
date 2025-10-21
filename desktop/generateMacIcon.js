@@ -61,33 +61,40 @@ async function generateMacIcon() {
       });
       console.log(`✓ 成功生成: ${icnsPath}`);
     } catch (error) {
-      console.log('iconutil 不可用（非 macOS 系统），将使用备用方案...');
+      console.error('❌ iconutil 执行失败:', error.message);
+      console.log('\n尝试备用方案...');
       
-      // 备用方案：使用 png2icons 库
+      // 备用方案1：使用 sips 命令（macOS 自带）
       try {
-        const png2icons = require('png2icons');
+        const largest = path.join(iconsetDir, 'icon_512x512@2x.png');
+        execSync(`sips -s format icns "${largest}" --out "${icnsPath}"`, {
+          stdio: 'inherit'
+        });
+        console.log(`✓ 使用 sips 命令成功生成: ${icnsPath}`);
+      } catch (sipsError) {
+        console.error('❌ sips 命令也失败了:', sipsError.message);
         
-        // 读取 1024x1024 的 PNG
-        const sourceBuffer = await sharp(sourcePng)
-          .resize(1024, 1024)
-          .png()
-          .toBuffer();
-        
-        // 转换为 ICNS
-        const icnsBuffer = png2icons.createICNS(sourceBuffer, png2icons.BILINEAR, 0);
-        
-        // 写入文件
-        fs.writeFileSync(icnsPath, icnsBuffer);
-        console.log(`✓ 使用备用方案成功生成: ${icnsPath}`);
-      } catch (fallbackError) {
-        console.error('备用方案也失败了:', fallbackError.message);
-        console.log('\n提示: 在 macOS 系统上运行此脚本以生成真正的 .icns 文件');
-        console.log('或者安装 png2icons: npm install png2icons');
-        
-        // 至少复制一个 PNG 作为占位符
-        const placeholder = path.join(iconsetDir, 'icon_512x512@2x.png');
-        fs.copyFileSync(placeholder, icnsPath.replace('.icns', '.png'));
-        console.log('已创建 PNG 占位符');
+        // 备用方案2：使用 png2icons 库（最后的备选）
+        try {
+          const png2icons = require('png2icons');
+          
+          // 读取 1024x1024 的 PNG
+          const sourceBuffer = await sharp(sourcePng)
+            .resize(1024, 1024)
+            .png()
+            .toBuffer();
+          
+          // 转换为 ICNS
+          const icnsBuffer = png2icons.createICNS(sourceBuffer, png2icons.BILINEAR, 0);
+          
+          // 写入文件
+          fs.writeFileSync(icnsPath, icnsBuffer);
+          console.log(`✓ 使用 png2icons 库成功生成: ${icnsPath}`);
+        } catch (fallbackError) {
+          console.error('❌ 所有方案都失败了:', fallbackError.message);
+          console.log('\n错误: 无法生成 .icns 文件，构建将失败');
+          process.exit(1);
+        }
       }
     }
 

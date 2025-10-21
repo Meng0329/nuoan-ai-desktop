@@ -63,11 +63,30 @@ jobs:
     - name: 生成 macOS 图标
       working-directory: desktop
       run: |
+        echo "=========================================="
         echo "开始生成 macOS 图标..."
+        echo "=========================================="
+        echo ""
+        echo "检查源文件:"
+        ls -lh assets/logo.png || (echo "❌ 错误: assets/logo.png 不存在！" && exit 1)
+        echo ""
+        echo "运行图标生成脚本..."
         npm run build:icon:mac
+        ICON_EXIT_CODE=$?
+        echo ""
+        echo "图标生成脚本退出码: $ICON_EXIT_CODE"
         echo ""
         echo "检查生成的图标："
-        ls -lh build/icon.icns || echo "⚠️ icon.icns 生成失败"
+        if [ -f "build/icon.icns" ]; then
+          ls -lh build/icon.icns
+          echo "✓ icon.icns 生成成功"
+        else
+          echo "❌ 错误: build/icon.icns 不存在！"
+          echo ""
+          echo "build 目录内容:"
+          ls -lh build/ || echo "build 目录不存在"
+          exit 1
+        fi
     
     # 7. 构建 macOS 应用（不签名）
     - name: 构建 macOS 应用
@@ -158,8 +177,20 @@ jobs:
           fi
         fi
     
-    # 9. 上传构建产物
+    # 9. 上传构建日志（失败时）
+    - name: 上传构建日志
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          desktop/build.log
+          desktop/dist/**/*
+        if-no-files-found: ignore
+    
+    # 10. 上传构建产物
     - name: 上传构建产物
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: macos-dmg-files
@@ -209,21 +240,35 @@ jobs:
           else
             echo "### ⚠️ dist 目录存在，但未找到 DMG 文件" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "dist 目录内容:" >> $GITHUB_STEP_SUMMARY
+            echo "**dist 目录内容:**" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            ls -lh desktop/dist/ 2>/dev/null || echo "无法列出目录内容" >> $GITHUB_STEP_SUMMARY
+            ls -lhR desktop/dist/ 2>/dev/null || echo "无法列出目录内容" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # 显示构建日志
+            if [ -f "desktop/build.log" ]; then
+              echo "<details>" >> $GITHUB_STEP_SUMMARY
+              echo "<summary>📋 点击查看完整构建日志</summary>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat desktop/build.log >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
         else
           echo "### ❌ 构建失败：dist 目录不存在" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f "desktop/build.log" ]; then
             echo "<details>" >> $GITHUB_STEP_SUMMARY
-            echo "<summary>点击查看构建日志（最后100行）</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>📋 点击查看完整构建日志</summary>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 100 desktop/build.log >> $GITHUB_STEP_SUMMARY
+            cat desktop/build.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "</details>" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ 构建日志文件不存在" >> $GITHUB_STEP_SUMMARY
           fi
         fi
