@@ -1,0 +1,129 @@
+name: 鏋勫缓 macOS 妗岄潰搴旂敤
+
+on:
+  # 鎵嬪姩瑙﹀彂锛堟渶甯哥敤锛?  workflow_dispatch:
+  
+  # 鎺ㄩ€?tag 鏃惰嚜鍔ㄨЕ鍙戯紙鍙€夛級
+  push:
+    tags:
+      - 'v*'
+  
+  # 鎺ㄩ€佸埌 main 鍒嗘敮鏃惰Е鍙戯紙鍙€夛級
+  # push:
+  #   branches:
+  #     - main
+
+jobs:
+  build-mac:
+    name: 鏋勫缓 macOS 搴旂敤
+    runs-on: macos-latest  #浣跨敤 GitHub 鎻愪緵鐨勭湡瀹?macOS 鐜
+    
+    steps:
+    # 1. 妫€鍑轰唬鐮?    - name: 妫€鍑轰唬鐮?      uses: actions/checkout@v4
+    
+    # 2. 璁剧疆 Node.js 鐜
+    - name: 璁剧疆 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    # 3. 鏄剧ず绯荤粺淇℃伅
+    - name: 鏄剧ず绯荤粺淇℃伅
+      run: |
+        echo "绯荤粺淇℃伅:"
+        echo "鎿嶄綔绯荤粺: $(uname -s)"
+        echo "鏋舵瀯: $(uname -m)"
+        echo "Node.js: $(node --version)"
+        echo "npm: $(npm --version)"
+        echo "宸ヤ綔鐩綍: $(pwd)"
+    
+    # 4. 瀹夎渚濊禆
+    - name: 瀹夎渚濊禆
+      working-directory: desktop
+      run: |
+        echo "寮€濮嬪畨瑁呬緷璧?.."
+        npm install
+        echo "渚濊禆瀹夎瀹屾垚"
+    
+    # 5. 鏄剧ず閰嶇疆淇℃伅
+    - name: 妫€鏌ラ厤缃?      working-directory: desktop
+      run: |
+        echo "package.json 鐗堟湰:"
+        node -p "require('./package.json').version"
+        echo ""
+        echo "妫€鏌ュ浘鏍囨枃浠?"
+        ls -lh build/icon.icns || echo "icon.icns 涓嶅瓨鍦?
+        ls -lh assets/logo.png || echo "logo.png 涓嶅瓨鍦?
+    
+    # 6. 鏋勫缓 macOS 搴旂敤锛堜笉绛惧悕锛?    - name: 鏋勫缓 macOS 搴旂敤
+      working-directory: desktop
+      run: npm run build:mac
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: false
+        APPLEID: ""
+        APPLEIDPASS: ""
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    # 7. 鏄剧ず鏋勫缓缁撴灉
+    - name: 鏄剧ず鏋勫缓缁撴灉
+      working-directory: desktop
+      run: |
+        echo "鏋勫缓瀹屾垚"
+        echo ""
+        echo "鐢熸垚鐨勬枃浠?"
+        ls -lh dist/*.dmg 2>/dev/null || echo "鏈壘鍒?DMG 鏂囦欢"
+        ls -lh dist/*.zip 2>/dev/null || echo "鏈壘鍒?ZIP 鏂囦欢"
+        echo ""
+        echo "dist 鐩綍鍐呭:"
+        ls -R dist/ || true
+        echo ""
+        if ls dist/*.dmg 1> /dev/null 2>&1; then
+          for file in dist/*.dmg; do
+            size=$(du -h "$file" | cut -f1)
+            echo "  $(basename "$file") - $size"
+          done
+        fi
+    
+    # 8. 涓婁紶鏋勫缓浜х墿
+    - name: 涓婁紶鏋勫缓浜х墿
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-dmg-files
+        path: |
+          desktop/dist/*.dmg
+          desktop/dist/latest-mac.yml
+        if-no-files-found: error
+    
+    # 9. 涓婁紶鍒?GitHub Release
+    - name: 鍙戝竷鍒?Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: desktop/dist/*.dmg
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    # 10. 鏋勫缓鎽樿
+    - name: 鐢熸垚鏋勫缓鎽樿
+      if: always()
+      run: |
+        echo "## macOS 鏋勫缓鎽樿" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| 椤圭洰 | 鍊?|" >> $GITHUB_STEP_SUMMARY
+        echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
+        echo "| 鐗堟湰 | $(node -p "require('./desktop/package.json').version") |" >> $GITHUB_STEP_SUMMARY
+        echo "| 骞冲彴 | macOS (Intel + Apple Silicon) |" >> $GITHUB_STEP_SUMMARY
+        echo "| 鏋勫缓鏃堕棿 | $(date '+%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if ls desktop/dist/*.dmg 1> /dev/null 2>&1; then
+          echo "### 鐢熸垚鐨勬枃浠讹細" >> $GITHUB_STEP_SUMMARY
+          for file in desktop/dist/*.dmg; do
+            size=$(du -h "$file" | cut -f1)
+            echo "- \`$(basename "$file")\` - $size" >> $GITHUB_STEP_SUMMARY
+          done
+        else
+          echo "### 鏈壘鍒?DMG 鏂囦欢" >> $GITHUB_STEP_SUMMARY
+        fi
