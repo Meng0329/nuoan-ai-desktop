@@ -1,0 +1,136 @@
+{
+  "name": "nuoan-auth-desktop",
+  "version": "1.8.0",
+  "description": "诺安科技身份认证 - 硬件ID获取与认证",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:icon": "node generateWinIcon.js",
+    "build": "npm run build:icon && electron-builder",
+    "build:win": "npm run build:icon && electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:win-zip": "npm run build:icon && electron-builder --win --config.win.target=zip",
+    "build:win-installer": "npm run build:icon && electron-builder --win nsis",
+    "build:win-no-sign-ci": "npm run build:icon && electron-builder --win nsis",
+    "build:win-no-sign": "node build-no-sign.js"
+  },
+  "keywords": [
+    "electron",
+    "hardware-id",
+    "authentication"
+  ],
+  "author": "诺安AI团队",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.13.3",
+    "sharp": "^0.34.3",
+    "png-to-ico": "^2.1.8",
+    "cross-env": "^7.0.3"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "dotenv": "^9.0.2",
+    "electron-store": "^8.1.0",
+    "systeminformation": "^5.21.0",
+    "electron-updater": "^6.1.6",
+    "uuid": "^9.0.0"
+  },
+  "build": {
+    "appId": "com.nuoan-ai.desktop",
+    "productName": "诺安科技身份认证",
+    "directories": {
+      "output": "dist"
+    },
+    "asar": true,
+    "compression": "maximum",
+    "afterPack": "./afterPack.js",
+    "forceCodeSigning": false,
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://nuoanai.com/desktop/updates/"
+      }
+    ],
+    "files": [
+      "main.js",
+      "renderer.js",
+      "index.html",
+      "assets/logo.jpg",
+      "assets/logo.png",
+      "assets/logo.ico",
+      "assets/wechat-qr.png",
+      ".env",
+      "generateWinIcon.js"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "*.jpg",
+          "*.png",
+          "*.ico"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signingHashAlgorithms": null,
+      "verifyUpdateCodeSignature": false,
+      "sign": null,
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false,
+      "signDlls": false,
+      "certificateFile": null,
+      "certificatePassword": null,
+      "certificateSubjectName": null,
+      "certificateSha1": null,
+      "publisherName": ""
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "诺安科技身份认证",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "menuCategory": "诺安科技",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "./build/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "electronDownload": {
+      "cache": ".electron-cache"
+    },
+    "npmRebuild": false
+  }
+}
