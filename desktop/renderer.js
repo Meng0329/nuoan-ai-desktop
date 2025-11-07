@@ -181,16 +181,16 @@ async function openWebAppDirect() {
             }
         }
         
-        // 打开登录页，添加 autoLogin 参数触发自动登录
-        const loginUrl = `${webUrl}/login?autoLogin=true`;
-        console.log('打开官网并自动登录:', loginUrl);
+        // 打开登录页
+        const loginUrl = `${webUrl}/login`;
+        console.log('打开官网登录页:', loginUrl);
         
         await ipcRenderer.invoke('open-external-link', loginUrl);
-        showSuccess('正在打开浏览器，页面将自动登录...');
+        showSuccess('正在打开浏览器...');
         
         // 提示用户
         setTimeout(() => {
-            showSuccess('浏览器已打开，页面将自动登录并跳转到AI绘图页面');
+            showSuccess('浏览器已打开，请登录后使用AI绘图功能');
         }, 2000);
     } catch (error) {
         console.error('打开官网失败:', error);
